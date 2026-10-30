@@ -1,87 +1,260 @@
-<!doctype html>
+
+<!DOCTYPE html>
 <html lang="id">
 <head>
-  <base target="_top">
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Absensi QR Santriwati</title>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
-    body{font-family:Arial,sans-serif;max-width:620px;margin:auto;padding:16px;background:#f4f6f8;color:#17202a}
-    h2{margin:4px 0 16px;font-size:22px}
-    label{display:block;font-weight:700;margin:14px 0 6px}
-    select,input,button{width:100%;box-sizing:border-box;padding:12px;border:1px solid #c9d2dc;border-radius:8px;font-size:16px}
-    input,select{background:#fff}
-    button{background:#17365d;color:#fff;border:0;margin-top:12px;font-weight:700;cursor:pointer}
-    button.secondary{background:#596579}
-    button:disabled{opacity:.55;cursor:not-allowed}
-    #reader{margin-top:14px;background:#fff;border:1px solid #d8dee6;border-radius:10px;overflow:hidden;min-height:70px;padding:8px;box-sizing:border-box}
-    #msg{padding:12px;background:#fff;border:1px solid #e0e5eb;border-radius:8px;margin:12px 0;min-height:24px;overflow-wrap:anywhere}
-    .hint{font-size:13px;line-height:1.5;color:#5b6570}
-    .good{color:#126b37}.bad{color:#a12622}
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 520px;
+      margin: auto;
+      padding: 18px;
+      background: #f4f6f8;
+      color: #17202a;
+    }
+    h2 { font-size: 22px; }
+    label {
+      display: block;
+      font-weight: bold;
+      margin: 15px 0 6px;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 13px;
+      font-size: 16px;
+      border-radius: 9px;
+      border: 1px solid #ccd3dc;
+    }
+    button {
+      margin-top: 12px;
+      background: #17365d;
+      color: white;
+      border: 0;
+      font-weight: bold;
+    }
+    button:disabled { opacity: .5; }
+    .secondary { background: #596579; }
+    #reader {
+      margin-top: 15px;
+      background: white;
+      padding: 8px;
+      border-radius: 10px;
+      overflow: hidden;
+      min-height: 70px;
+    }
+    #msg {
+      background: white;
+      padding: 13px;
+      margin-top: 14px;
+      border-radius: 9px;
+      overflow-wrap: anywhere;
+    }
+    .good { color: #16733b; }
+    .bad { color: #b3261e; }
+    .hint { font-size: 13px; color: #667; line-height: 1.5; }
   </style>
 </head>
 <body>
-  <h2>📷 Absensi QR Santriwati — Per Kelas</h2>
-  <label for="activity">Aktivitas</label>
-  <select id="activity"><option value="">Memuat aktivitas…</option></select>
-  <label for="pembina">Nama pembina yang bertugas</label>
-  <input id="pembina" placeholder="Contoh: Ustazah Inayah" autocomplete="name">
-  <button id="startBtn" type="button">Mulai Scan QR</button>
-  <button id="stopBtn" class="secondary" type="button" disabled>Hentikan Kamera</button>
-  <div id="msg">Memuat daftar aktivitas…</div>
-  <div id="reader"><p class="hint">Tekan “Mulai Scan QR” untuk mengaktifkan kamera. Izinkan akses kamera jika diminta.</p></div>
-  <p class="hint">Pilih aktivitas dan isi nama pembina sebelum scan. QR berisi ID santriwati. Scan yang sama untuk aktivitas yang sama pada hari yang sama akan ditolak.</p>
+
+<h2>📷 Absensi QR Santriwati</h2>
+<p class="hint">Sistem pemindai barcode santriwati per kelas.</p>
+
+<label>Aktivitas</label>
+<select id="activity">
+  <option value="">Memuat aktivitas...</option>
+</select>
+
+<label>Nama pembina yang bertugas</label>
+<input id="pembina" placeholder="Contoh: Ustazah Inayah">
+
+<button id="startBtn">📷 Mulai Scan QR</button>
+<button id="stopBtn" class="secondary" disabled>Hentikan Kamera</button>
+
+<div id="msg">Menghubungkan ke database...</div>
+<div id="reader">
+  <p class="hint">Kamera akan tampil di sini.</p>
+</div>
+
+<p class="hint">
+  Arahkan kamera belakang ke QR santriwati.
+  Setiap santri hanya bisa tercatat satu kali
+  untuk aktivitas yang sama dalam sehari.
+</p>
+
 <script>
-let scanner=null, busy=false, loaded=false;
-const msg=document.getElementById('msg');
-const startBtn=document.getElementById('startBtn');
-const stopBtn=document.getElementById('stopBtn');
-const activity=document.getElementById('activity');
-const pembina=document.getElementById('pembina');
-function say(text,cls=''){msg.className=cls;msg.textContent=text;}
-function loadOptions(){
-  google.script.run.withSuccessHandler(data=>{
-    activity.innerHTML='';
-    (data.aktivitas||[]).forEach(a=>{const opt=document.createElement('option');opt.value=a.nama;opt.textContent=a.nama;activity.appendChild(opt);});
-    if(!activity.options.length){activity.innerHTML='<option value="">Tidak ada aktivitas</option>';say('Daftar aktivitas kosong. Periksa sheet AKTIVITAS.','bad');return;}
-    loaded=true;say('Siap. Pilih aktivitas, isi nama pembina, lalu tekan Mulai Scan QR.','good');
-  }).withFailureHandler(e=>say('Gagal memuat aktivitas: '+(e.message||e),'bad')).getOptions();
+const API = 'https://script.google.com/macros/s/AKfycbw6AQAKLYUtTNsznuIZA4IFALWkKfhtHb5X3sLSzdxGl-_NcdTE0eYlHKAoOh_puEcJ/exec';
+
+const activity = document.getElementById('activity');
+const pembina = document.getElementById('pembina');
+const msg = document.getElementById('msg');
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+
+let scanner = null;
+let busy = false;
+let loaded = false;
+let requestNumber = 0;
+
+function say(text, cls = '') {
+  msg.className = cls;
+  msg.textContent = text;
 }
-async function startScanner(){
-  if(!loaded){say('Daftar aktivitas belum siap. Muat ulang halaman dan coba lagi.','bad');return;}
-  if(!activity.value){say('Pilih aktivitas terlebih dahulu.','bad');return;}
-  if(!pembina.value.trim()){say('Isi nama pembina terlebih dahulu.','bad');pembina.focus();return;}
-  if(typeof Html5Qrcode==='undefined'){
-    say('Pustaka pemindai QR tidak termuat. Pastikan internet aktif, lalu muat ulang halaman.','bad');return;
+
+// Menghubungkan GitHub Pages ke Google Apps Script
+function callAPI(params) {
+  return new Promise((resolve, reject) => {
+    const callback = 'qrCallback' + (++requestNumber);
+    const script = document.createElement('script');
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error('Koneksi ke database timeout. Coba lagi.'));
+    }, 20000);
+
+    function cleanup() {
+      clearTimeout(timeout);
+      delete window[callback];
+      script.remove();
+    }
+
+    window[callback] = data => {
+      cleanup();
+      resolve(data);
+    };
+
+    script.onerror = () => {
+      cleanup();
+      reject(new Error('Gagal menghubungi server absensi.'));
+    };
+
+    const query = new URLSearchParams({
+      ...params,
+      callback
+    });
+
+    script.src = API + '?' + query.toString();
+    document.body.appendChild(script);
+  });
+}
+
+async function loadOptions() {
+  try {
+    const data = await callAPI({api: 'options'});
+
+    if (!data.ok) throw new Error(data.message);
+
+    activity.innerHTML = '';
+
+    (data.aktivitas || []).forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.nama;
+      opt.textContent = a.nama;
+      activity.appendChild(opt);
+    });
+
+    if (!activity.options.length) {
+      throw new Error('Daftar aktivitas kosong.');
+    }
+
+    loaded = true;
+    say('Database terhubung. Silakan mulai scan.', 'good');
+
+  } catch (e) {
+    say('Gagal memuat data: ' + e.message, 'bad');
   }
-  startBtn.disabled=true;
-  try{
-    if(!scanner) scanner=new Html5Qrcode('reader');
-    await scanner.start({facingMode:'environment'},{fps:10,qrbox:{width:230,height:230}},onScanSuccess,()=>{});
-    stopBtn.disabled=false;say('Kamera aktif. Arahkan ke QR santriwati.','good');
-  }catch(e){
-    startBtn.disabled=false;
-    say('Kamera gagal dibuka: '+(e.message||e)+'. Pastikan memakai URL Web App HTTPS, izinkan kamera, dan tutup aplikasi lain yang memakai kamera.','bad');
+}
+
+async function startScanner() {
+  if (!loaded) {
+    say('Database belum siap. Muat ulang halaman.', 'bad');
+    return;
+  }
+
+  if (!activity.value) {
+    say('Pilih aktivitas terlebih dahulu.', 'bad');
+    return;
+  }
+
+  if (!pembina.value.trim()) {
+    say('Isi nama pembina terlebih dahulu.', 'bad');
+    pembina.focus();
+    return;
+  }
+
+  if (typeof Html5Qrcode === 'undefined') {
+    say('Pustaka pemindai tidak termuat. Periksa internet.', 'bad');
+    return;
+  }
+
+  startBtn.disabled = true;
+
+  try {
+    if (!scanner) scanner = new Html5Qrcode('reader');
+
+    await scanner.start(
+      { facingMode: 'environment' },
+      {
+        fps: 10,
+        qrbox: { width: 230, height: 230 }
+      },
+      onScanSuccess,
+      () => {}
+    );
+
+    stopBtn.disabled = false;
+    say('Kamera aktif. Arahkan ke QR santriwati.', 'good');
+
+  } catch (e) {
+    startBtn.disabled = false;
+    say('Kamera gagal dibuka: ' + (e.message || e), 'bad');
   }
 }
-function onScanSuccess(decodedText){
-  if(busy)return;
-  busy=true;
-  say('QR terbaca: '+decodedText+'. Menyimpan absensi…');
-  google.script.run.withSuccessHandler(r=>{
-    say((r&&r.message)||'Respons diterima.',r&&r.ok?'good':'');
-    setTimeout(()=>{busy=false;},1600);
-  }).withFailureHandler(e=>{
-    say('Gagal mencatat: '+(e.message||e),'bad');
-    setTimeout(()=>{busy=false;},1800);
-  }).recordScan(decodedText,activity.value,pembina.value.trim());
+
+async function onScanSuccess(decodedText) {
+  if (busy) return;
+
+  busy = true;
+  say('QR terbaca: ' + decodedText + '. Menyimpan absensi...');
+
+  try {
+    const result = await callAPI({
+      api: 'scan',
+      id: decodedText,
+      activity: activity.value,
+      pembina: pembina.value.trim()
+    });
+
+    say(result.message || 'Respons diterima.',
+        result.ok ? 'good' : 'bad');
+
+  } catch (e) {
+    say('Gagal mencatat: ' + e.message, 'bad');
+  }
+
+  setTimeout(() => { busy = false; }, 1800);
 }
-async function stopScanner(){
-  if(scanner){try{await scanner.stop();}catch(e){} try{scanner.clear();}catch(e){} scanner=null;}
-  document.getElementById('reader').innerHTML='<p class="hint">Kamera dihentikan. Tekan “Mulai Scan QR” untuk memindai lagi.</p>';
-  startBtn.disabled=false;stopBtn.disabled=true;say('Kamera dihentikan.');
+
+async function stopScanner() {
+  if (scanner) {
+    try { await scanner.stop(); } catch (e) {}
+    try { scanner.clear(); } catch (e) {}
+    scanner = null;
+  }
+
+  document.getElementById('reader').innerHTML =
+    '<p class="hint">Kamera dihentikan.</p>';
+
+  startBtn.disabled = false;
+  stopBtn.disabled = true;
+  say('Kamera dihentikan.');
 }
-startBtn.addEventListener('click',startScanner);
-stopBtn.addEventListener('click',stopScanner);
+
+startBtn.addEventListener('click', startScanner);
+stopBtn.addEventListener('click', stopScanner);
+
 loadOptions();
 </script>
 </body>
